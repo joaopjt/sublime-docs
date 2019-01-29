@@ -6,30 +6,47 @@ import sublime
 import sublime_plugin
 
 PACKAGES = []
+BASEPATH = '/'
 
 class DocsCommand(sublime_plugin.WindowCommand):
-  def getPackages(path):
-    packages = []
-    
-    with open(path + '/package.json', 'r', 'utf-8') as packageFile:
-      print(packageFile.read())
-      data = json.loads(packageFile.read())
+  def verifyOpenedFolder(self):
+    if not self.window.folders():
+      sublime.message_dialog('No project folder opened.')
+      return False
 
-      if data.get('devDependencies'):
-        for package, version in data['devDependencies']:
-          packages.append(package)
-
-      if data.get('dependencies'):
-        for package, version in data['dependencies']:
-          packages.append(package)
-
-    return packages
+    return True
 
   def getConfigPath(self):
-    with open(self.window.folders()[0] + '/docs.json', 'r') as config:
-      print(config.read())
-      data = json.loads(config.read())
-    return data['base_path'] | self.window.folders()[0]
+    try:
+      with open(self.window.folders()[0] + '\\.docsconfig', 'r') as config:
+        data = config.read()
+      data = json.loads(data)
+      data = data['base_path']
+    except:
+      data = '/'
+
+    return data
+
+  def getPackages(self):
+    packages = []
+    try:
+      with open(self.window.folders()[0] + BASEPATH + 'package.json', 'r') as packageFile:
+        data = packageFile.read()
+    except:
+      sublime.message_dialog('Unable to find the \'package.json\' file.')
+      return
+
+    data = json.loads(data)
+
+    if data.get('devDependencies'):
+      for package in data['devDependencies']:
+        packages.append(package)
+
+    if data.get('dependencies'):
+      for package in data['dependencies']:
+        packages.append(package)
+
+    return packages
 
   def display_list(self, packages):
     self.packages = packages
@@ -37,11 +54,22 @@ class DocsCommand(sublime_plugin.WindowCommand):
     self.window.show_quick_panel(packages, self.on_done)
 
   def on_done(self, index):
-    self.window.open_file(self.window.folders()[0] + '/node_modules/' + PACKAGES[index] + '/README.md')
+    path = self.window.folders()[0] + BASEPATH + 'node_modules/' + PACKAGES[index] + '/README.md'
+
+    if index == -1:
+      return
+
+    if os.path.exists(path):
+      self.window.open_file(path)
+    else:
+      sublime.message_dialog('README from \'' + PACKAGES[index] + '\' not found.')
 
   def run(self):
     global PACKAGES
-    basePath = self.getConfigPath()
-    print(basePath)
-    PACKAGES = DocsCommand.getPackages(basePath)
-    self.display_list(PACKAGES)
+    global BASEPATH
+
+    if self.verifyOpenedFolder():
+      BASEPATH = self.getConfigPath()
+      PACKAGES = self.getPackages()
+
+      self.display_list(PACKAGES)
