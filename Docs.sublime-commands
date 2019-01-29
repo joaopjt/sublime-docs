@@ -1,4 +1,6 @@
 [
-    { "caption": "-", "id": "file" },
-    { "command": "docs", "caption": "Docs" }
+  {
+    "caption": "Docs",
+    "command": "docs"
+  }
 ]
